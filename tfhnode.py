@@ -24,7 +24,7 @@ from sqlalchemy import func
 
 # TODO:
 # - Add user if it does not exists
-# - Create home directory if it does not ex²ists
+# - Create home directory if it does not exists
 # - require domain to be verified
 # - reload nginx
 # - DNS
