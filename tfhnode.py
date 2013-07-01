@@ -21,6 +21,8 @@ from sqlalchemy import *
 from sqlalchemy.orm import sessionmaker
 from mako.template import Template
 from sqlalchemy import func
+from pwd import getpwnam
+from grp import getgrnam
 
 # TODO:
 # - Add user if it does not exists
@@ -42,6 +44,8 @@ parser.add_argument('--create-tables', action='store_true',
     dest='create-tables', help='Create tables and exit.')
 parser.add_argument('--make-postfix', action='store_true',
     dest='make-postfix', help='Generate postfix scripts and exit.')
+parser.add_argument('--make-dovecot', action='store_true',
+    dest='make-dovecot', help='Generate dovecot scripts and exit.')
 parser.add_argument('-v', '--verbose', action='count',
     default=None, dest='verbose', help='Increase verbosity')
 parser.add_argument('--db', action='store', dest='db',
@@ -98,6 +102,20 @@ if options['make-postfix']:
         fh.write(header)
         fh.write('query = '+files[f]+'\n')
         fh.close()
+    exit(0)
+
+if options['make-dovecot']:
+    print('Generating dovecot scripts...')
+    vmailuid = getpwnam('vmail').pw_uid
+    vmailgid = getgrnam('vmail').gr_gid
+    fh = open('./dovecot-sql.conf', 'w')
+    fh.write('driver = pgsql\n')
+    fh.write('connect = host=%s dbname=%s user=%s password=%s\n'%(
+        dbe.url.host, dbe.url.database, dbe.url.username, dbe.url.password))
+    fh.write('default_pass_scheme = SHA512-CRYPT\n')
+    fh.write("password_query = SELECT '%u' as user, password FROM mailboxes LEFT JOIN domains ON domains.id = mailboxes.domainid WHERE local_part='%n' AND domain='%d'\n")
+    fh.write('\n')
+    fh.close()
     exit(0)
 
 dbs = sessionmaker(bind=dbe)()
