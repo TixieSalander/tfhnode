@@ -145,6 +145,11 @@ users = dbs.query(Users).filter(subq.as_scalar()>=1).all()
 
 for user in users:
     logging.info('Processing user #%d <%s>'%(user.id, user.username))
+    home = '/home/%s'%(user.username)
+    if not os.path.isdir(home):
+        os.makedirs(home)
+        os.makedirs(home+'/logs')
+
     fh = open(options['output-php']%(user.username), 'w')
     fh.write(tplPhp.render(
         user = user.username,
@@ -158,12 +163,20 @@ for vhost in vhosts:
     if len(vhost.domains) < 1:
         logging.warning('vhost#%d: no domain.'%(vhost.id))
         continue
+    pubdir = '/home/%s/http_%s/' % (vhost.user.username, vhost.name)
+    legacydir = '/home/%s/public_http/' % (vhost.user.username)
+    if not os.path.isdir(pubdir):
+        if os.path.isdir(legacydir):
+            pubdir = legacydir
+        else:
+            os.makedirs(pubdir)
     for d in vhost.domains:
         logging.debug('-> domain: %s'%d.domain)
     fhNginx.write(tplNginx.render(
         listen_addr = (server.ipv4, server.ipv6),
         user = vhost.user.username,
         name = vhost.name,
+        pubdir = pubdir,
         hostnames = ' '.join([d.domain for d in vhost.domains]),
         autoindex = vhost.autoindex,
         catchall = vhost.catchall,
