@@ -169,7 +169,9 @@ for vhost in vhosts:
         catchall = vhost.catchall,
         rewrites = vhost.rewrites,
         error_pages = vhost.errorpages,
-        acl = vhost.acls
+        acl = vhost.acls,
+        apptype = vhost.apptype,
+        applocation = vhost.applocation,
     ))
 fhNginx.close()
 
