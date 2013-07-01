@@ -85,7 +85,7 @@ if options['create-tables']:
 if options['make-postfix']:
     print('Generating postfix scripts...')
     header = 'hosts = %s\nuser = %s\npassword = %s\ndbname = %s\n'%(
-        dbe.url.host, dbe.url.user, dbe.url.password, dbe.url.database)
+        dbe.url.host, dbe.url.username, dbe.url.password, dbe.url.database)
     files = {
         'domains' : "SELECT '%s' AS output FROM mailboxes LEFT JOIN domains ON domains.id = mailboxes.domainid WHERE domain='%s' LIMIT 1;",
         'boxes' : "SELECT '%d/%u' FROM mailboxes LEFT JOIN domains ON domains.id = mailboxes.domainid WHERE local_part='%u' AND domain='%d' AND redirect IS NULL",
@@ -96,7 +96,7 @@ if options['make-postfix']:
     for f in files.keys():
         fh=open('./postfix/'+f+'.cf', 'w')
         fh.write(header)
-        fh.write('query = '+files[f])
+        fh.write('query = '+files[f]+'\n')
         fh.close()
     exit(0)
 
