@@ -91,6 +91,8 @@ if options['make-postfix']:
         'boxes' : "SELECT '%d/%u' FROM mailboxes LEFT JOIN domains ON domains.id = mailboxes.domainid WHERE local_part='%u' AND domain='%d' AND redirect IS NULL",
         'aliases' : "SELECT redirect FROM mailboxes LEFT JOIN domains ON domains.id = mailboxes.domainid WHERE (local_part='%u' AND domain='%d' AND redirect IS NOT NULL) OR (local_part IS NULL AND domain='%d' AND redirect IS NOT NULL AND (SELECT COUNT(*) FROM mailboxes LEFT JOIN domains ON domains.id = mailboxes.domainid WHERE local_part='%u' AND domain='%d') = 0)",
     }
+    if not os.path.isdir('./postfix'):
+        os.makedirs('./postfix')
     for f in files.keys():
         fh=open('./postfix/'+f+'.cf', 'w')
         fh.write(header)
