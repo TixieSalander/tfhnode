@@ -161,7 +161,7 @@ for vhost in vhosts:
     for d in vhost.domains:
         logging.debug('-> domain: %s'%d.domain)
     fhNginx.write(tplNginx.render(
-        listen_addr = ('127.0.0.1', '::1'),
+        listen_addr = (server.ipv4, server.ipv6),
         user = vhost.user.username,
         name = vhost.name,
         hostnames = ' '.join([d.domain for d in vhost.domains]),
