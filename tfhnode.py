@@ -36,6 +36,7 @@ options = {
     'db' : 'postgresql+psycopg2://tfhdev@localhost/tfhdev',
     'output-php' : './output/phpfpm/%s.conf',
     'output-nginx' : './output/nginx.conf',
+    'output-dovecot' : './output/dovecot-sql.conf',
 }
 
 parser = ArgumentParser(description=__doc__,
@@ -54,6 +55,8 @@ parser.add_argument('--output-php', action='store',
     dest='output-php', help='Set PHP config file. %%s=user')
 parser.add_argument('--output-nginx', action='store',
     dest='output-nginx', help='Set nginx config file.')
+parser.add_argument('--output-dovecot', action='store',
+    dest='output-dovecot', help='Set dovecot config file.')
 parser.add_argument('--hostname', action='store',
     dest='hostname', help='Set hostname. Use system\'s if omitted.')
 
@@ -108,7 +111,7 @@ if options['make-dovecot']:
     print('Generating dovecot scripts...')
     vmailuid = getpwnam('vmail').pw_uid
     vmailgid = getgrnam('vmail').gr_gid
-    fh = open('./dovecot-sql.conf', 'w')
+    fh = open(options['output-dovecot'], 'w')
     fh.write('driver = pgsql\n')
     fh.write('connect = host=%s dbname=%s user=%s password=%s\n'%(
         dbe.url.host, dbe.url.database, dbe.url.username, dbe.url.password))
@@ -148,6 +151,7 @@ for user in users:
     home = '/home/%s'%(user.username)
     if not os.path.isdir(home):
         os.makedirs(home)
+    if not os.path.isdir(home+'/logs'):
         os.makedirs(home+'/logs')
 
     fh = open(options['output-php']%(user.username), 'w')
