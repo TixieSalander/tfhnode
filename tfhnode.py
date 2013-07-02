@@ -149,11 +149,18 @@ users = dbs.query(Users).filter(subq.as_scalar()>=1).all()
 for user in users:
     logging.info('Processing user #%d <%s>'%(user.id, user.username))
     home = '/home/%s'%(user.username)
+    try:
+        pwentry = getpwnam(user.username)
+    except KeyError:
+        logging.debug('-> useradd '+user.username)
+        command = 'useradd -d /home/%s -m -U' % (user.username)
+        if user.password:
+            command += ' -p '+user.password
+        os.system(command+' '+user.username)
     if not os.path.isdir(home):
         os.makedirs(home)
     if not os.path.isdir(home+'/logs'):
         os.makedirs(home+'/logs')
-
     fh = open(options['output-php']%(user.username), 'w')
     fh.write(tplPhp.render(
         user = user.username,
