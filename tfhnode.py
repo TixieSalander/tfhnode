@@ -163,8 +163,12 @@ for user in users:
         os.system(command+' '+user.username)
     if not os.path.isdir(home):
         os.makedirs(home)
+        os.system('chown %s:%s -R /home/%s/'%(
+            user.username,user.username,user.username))
     if not os.path.isdir(home+'/logs'):
         os.makedirs(home+'/logs')
+        os.system('chown %s:%s -R /home/%s/logs/'%(
+            user.username,user.username,user.username))
     fh = open(options['output-php']%(user.username), 'w')
     fh.write(tplPhp.render(
         user = user.username,
@@ -185,6 +189,8 @@ for vhost in vhosts:
             pubdir = legacydir
         else:
             os.makedirs(pubdir)
+            os.system('chown %s:%s -R %s'%(
+                user.username, user.username, pubdir))
     for d in vhost.domains:
         logging.debug('-> domain: %s'%d.domain)
     fhNginx.write(tplNginx.render(
