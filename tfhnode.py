@@ -22,6 +22,7 @@ from sqlalchemy.orm import sessionmaker
 from mako.template import Template
 from sqlalchemy import func
 from pwd import getpwnam
+from spwd import getspnam
 from grp import getgrnam
 
 # TODO:
@@ -150,12 +151,15 @@ for user in users:
     logging.info('Processing user #%d <%s>'%(user.id, user.username))
     home = '/home/%s'%(user.username)
     try:
-        pwentry = getpwnam(user.username)
+        spwdentry = getspnam(user.username)
+        if user.password and spwdentry.sp_pwd != user.password:
+            # Password changed
+            p = os.system("usermod -p '%s' %s"%(user.password, user.username))
     except KeyError:
         logging.debug('-> useradd '+user.username)
         command = 'useradd -d /home/%s -m -U' % (user.username)
         if user.password:
-            command += ' -p '+user.password
+            command += " -p '"+user.password+"'"
         os.system(command+' '+user.username)
     if not os.path.isdir(home):
         os.makedirs(home)
