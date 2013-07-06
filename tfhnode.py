@@ -182,15 +182,31 @@ for vhost in vhosts:
     if len(vhost.domains) < 1:
         logging.warning('vhost#%d: no domain.'%(vhost.id))
         continue
-    pubdir = '/home/%s/http_%s/' % (vhost.user.username, vhost.name)
-    legacydir = '/home/%s/public_http/' % (vhost.user.username)
-    if not os.path.isdir(pubdir):
-        if os.path.isdir(legacydir):
-            pubdir = legacydir
-        else:
-            os.makedirs(pubdir)
-            os.system('chown %s:%s -R %s'%(
-                user.username, user.username, pubdir))
+    
+    if not vhost.path:
+        # Before vhost.path...
+        pubdir = '/home/%s/http_%s/' % (vhost.user.username, vhost.name)
+        legacydir = '/home/%s/public_http/' % (vhost.user.username)
+        if not os.path.isdir(pubdir):
+            if os.path.isdir(legacydir):
+                pubdir = legacydir
+            else:
+                os.makedirs(pubdir)
+                os.system('chown %s:%s -R %s'%(
+                    user.username, user.username, pubdir))
+    else:
+        pubdir = os.path.abspath(vhost.path)
+        if not pubdir.startswith('/home/'+vhost.user.username+'/'):
+            # Should not be out of user's /home
+            logging.warning('vhost#%d: invalid path.')
+            continue
+        if not os.path.isdir(pubdir):
+            logging.warning('vhost#%d: path does not exists.')
+            continue
+        if getpwuid(stat(pubdir).st_uid).pw_name != vhost.user.username:
+            logging.warning('vhost#%d: path does not belong to user.')
+            continue
+    
     for d in vhost.domains:
         logging.debug('-> domain: %s'%d.domain)
     fhNginx.write(tplNginx.render(
@@ -208,8 +224,6 @@ for vhost in vhosts:
         applocation = vhost.applocation,
     ))
 fhNginx.close()
-
-
 
 server.lastupdate = datetime.datetime.now()
 dbs.commit()
