@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 """
 Tux-FreeHost Node: Generate config for the current server.
 
