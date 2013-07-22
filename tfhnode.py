@@ -28,12 +28,12 @@ from grp import getgrnam
 # TODO:
 # - CHMOD 700 ON GENERATED FILES. 
 #   ^^^ SERIOUSLY, DO IT
-# - Add user if it does not exists
 # - Create home directory if it does not exists
 # - require domain to be verified
-# - reload nginx
+# - reload services
 # - DNS
 # - Postfix SQL queries on multiple lines.
+# - Use templates for --make-* and emperor
 
 options = {
     'db' : 'postgresql+psycopg2://tfhdev@localhost/tfhdev',
@@ -201,17 +201,6 @@ users = dbs.query(Users).filter(subq.as_scalar()>=1).all()
 for user in users:
     logging.info('Processing user #%d <%s>'%(user.id, user.username))
     home = '/home/%s'%(user.username)
-    try:
-        spwdentry = getspnam(user.username)
-        if user.password and spwdentry.sp_pwd != user.password:
-            # Password changed
-            p = os.system("usermod -p '%s' %s"%(user.password, user.username))
-    except KeyError:
-        logging.debug('-> useradd '+user.username)
-        command = 'useradd -d /home/%s -m -U' % (user.username)
-        if user.password:
-            command += " -p '"+user.password+"'"
-        os.system(command+' '+user.username)
     if not os.path.isdir(home):
         os.makedirs(home)
         os.system('chown %s:%s -R /home/%s/'%(
