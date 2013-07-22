@@ -158,8 +158,8 @@ if options['make-nss-pgsql-root']:
     fh = open(options['output-nss-pgsql-root'], 'w')
     fh.write('shadowconnectionstring = host=%s dbname=%s user=%s password=%s\n'%(
         dbe.url.host, dbe.url.database, dbe.url.username, dbe.url.password))
-    fh.write('shadowbyname = select username as shadow_name, password as shadow_passwd, 15066 AS shadow_lstchg, 0 AS shadow_min, 99999 AS shadow_max, 7 AS shadow_warn, 7 AS shadow_inact, 99999 AS shadow_expire, 0 AS shadow_flag from users where username = $1 and password is not NULL and password != \'\'\n')
-    fh.write('shadow = select username as shadow_name, password as shadow_passwd, 15066 AS shadow_lstchg, 0 AS shadow_min, 99999 AS shadow_max, 7 AS shadow_warn, 7 AS shadow_inact, 99999 AS shadow_expire, 0 AS shadow_flag from users where password is not NULL and password != \'\'\n')
+    fh.write('shadowbyname = select username as shadow_name, COALESCE(password, \'*\') as shadow_passwd, 15066 AS shadow_lstchg, 0 AS shadow_min, 99999 AS shadow_max, 7 AS shadow_warn, 7 AS shadow_inact, 99999 AS shadow_expire, 0 AS shadow_flag from users where username = $1\n')
+    fh.write('shadow = select username as shadow_name, COALESCE(password, \'*\') as shadow_passwd, 15066 AS shadow_lstchg, 0 AS shadow_min, 99999 AS shadow_max, 7 AS shadow_warn, 7 AS shadow_inact, 99999 AS shadow_expire, 0 AS shadow_flag from users\n')
     fh.close();
     exit(0);
 
