@@ -26,6 +26,8 @@ from spwd import getspnam
 from grp import getgrnam
 
 # TODO:
+# - CHMOD 700 ON GENERATED FILES. 
+#   ^^^ SERIOUSLY, DO IT
 # - Add user if it does not exists
 # - Create home directory if it does not exists
 # - require domain to be verified
@@ -36,8 +38,12 @@ from grp import getgrnam
 options = {
     'db' : 'postgresql+psycopg2://tfhdev@localhost/tfhdev',
     'output-php' : './output/phpfpm/%s.conf',
+    'output-emperor' : './output/emperor/',
     'output-nginx' : './output/nginx.conf',
     'output-dovecot' : './output/dovecot-sql.conf',
+    'output-pam-pgsql' : './output/pam_pgsql.conf',
+    'output-nss-pgsql' : './output/nss-pgsql.conf',
+    'output-nss-pgsql-root' : './output/nss-pgsql-root.conf',
 }
 
 parser = ArgumentParser(description=__doc__,
@@ -48,16 +54,26 @@ parser.add_argument('--make-postfix', action='store_true',
     dest='make-postfix', help='Generate postfix scripts and exit.')
 parser.add_argument('--make-dovecot', action='store_true',
     dest='make-dovecot', help='Generate dovecot scripts and exit.')
-parser.add_argument('-v', '--verbose', action='count',
+parser.add_argument('--make-pam-pgsql', action='store_true',
+    dest='make-pam-pgsql', help='Generate pam_pgsql.conf and exit.')
+parser.add_argument('--make-nss-pgsql', action='store_true',
+    dest='make-nss-pgsql', help='Generate nss_pgsql.conf and exit.')
+parser.add_argument('--make-nss-pgsql-root', action='store_true',
+    dest='make-nss-pgsql-root', help='Generate nss_pgsql-root.conf and exit.')
+parser.add_argument('-v', '--verbose', action='store_true',
     default=None, dest='verbose', help='Increase verbosity')
 parser.add_argument('--db', action='store', dest='db',
     help='Set database info.')
 parser.add_argument('--output-php', action='store',
-    dest='output-php', help='Set PHP config file. %%s=user')
+    dest='output-php', help='Set PHP config file. %%s=user_vhost')
+parser.add_argument('--output-emperor', action='store',
+    dest='output-emperor', help='Set supervisor config file. %%s=user')
 parser.add_argument('--output-nginx', action='store',
     dest='output-nginx', help='Set nginx config file.')
 parser.add_argument('--output-dovecot', action='store',
     dest='output-dovecot', help='Set dovecot config file.')
+parser.add_argument('--output-pam-pgsql', action='store',
+    dest='output-pam-pgsql', help='Set pam_pgsql.conf location.')
 parser.add_argument('--hostname', action='store',
     dest='hostname', help='Set hostname. Use system\'s if omitted.')
 
@@ -107,6 +123,41 @@ if options['make-postfix']:
         fh.write('query = '+files[f]+'\n')
         fh.close()
     exit(0)
+
+if options['make-pam-pgsql']:
+    print('Generating pam_pgsql.conf...')
+    fh = open(options['output-pam-pgsql'], 'w')
+    fh.write('connect = host=%s dbname=%s user=%s password=%s\n'%(
+        dbe.url.host, dbe.url.database, dbe.url.username, dbe.url.password))
+    fh.write('auth_query = select password from users where username = %u\n')
+    fh.write('pwd_query = update users set password = %p where username = %u\n')
+    fh.write('acct_query = select FALSE, FALSE, (password is NULL or password = '') from users where username = %u\n')
+    fh.close();
+    exit(0);
+    
+if options['make-nss-pgsql']:
+    print('Generating nss-pgsql.conf...')
+    fh = open(options['output-nss-pgsql'], 'w')
+    fh.write('connectionstring = host=%s dbname=%s user=%s password=%s\n'%(
+        dbe.url.host, dbe.url.database, dbe.url.username, dbe.url.password))
+    fh.write('getpwnam = select username, \'x\' as passwd, \'\' as gecos, (\'/home/\' || username) as homedir, COALESCE(shell, \'/bin/bash\'), (id+1000) as uid, (groupid+1000) as gid from users where username = $1\n')
+    fh.write('getpwuid = select username, \'x\' as passwd, \'\' as gecos, (\'/home/\' || username) as homedir, COALESCE(shell, \'/bin/bash\'), (id+1000) as uid, (groupid+1000) as gid from users where id = ($1 - 1000)\n')
+    fh.write('getgroupmembersbygid = select username from users where groupid = $1\n')
+    fh.write('getgrnam = select name as groupname, \'x\', (id+1000) as gid, ARRAY(SELECT username from users where groupid = groups.id) as members FROM groups WHERE name = $1\n')
+    fh.write('getgrgid = select name as groupname, \'x\', (id+1000) as gid, ARRAY(SELECT username from users where groupid = groups.id) as members FROM groups WHERE id = $1-1000\n')
+    fh.write('groups_dyn = select groupid from users where groupid = $1 AND groupid <> $2 \n') # wtf.
+    fh.close();
+    exit(0);
+
+if options['make-nss-pgsql-root']:
+    print('Generating nss-pgsql-root.conf...')
+    fh = open(options['output-nss-pgsql-root'], 'w')
+    fh.write('connectionstring = host=%s dbname=%s user=%s password=%s\n'%(
+        dbe.url.host, dbe.url.database, dbe.url.username, dbe.url.password))
+    fh.write('shadowbyname = select username as shadow_name, password as shadow_passwd, 15066 AS shadow_lstchg, 0 AS shadow_min, 99999 AS shadow_max, 7 AS shadow_warn, 7 AS shadow_inact, 99999 AS shadow_expire, 0 AS shadow_flag from users where username = $1 and password is not NULL and password != \'\'\n')
+    fh.write('shadow = select username as shadow_name, password as shadow_passwd, 15066 AS shadow_lstchg, 0 AS shadow_min, 99999 AS shadow_max, 7 AS shadow_warn, 7 AS shadow_inact, 99999 AS shadow_expire, 0 AS shadow_flag from users where password is not NULL and password != \'\'\n')
+    fh.close();
+    exit(0);
 
 if options['make-dovecot']:
     print('Generating dovecot scripts...')
@@ -206,7 +257,40 @@ for vhost in vhosts:
         if getpwuid(stat(pubdir).st_uid).pw_name != vhost.user.username:
             logging.warning('vhost#%d: path does not belong to user.')
             continue
-    
+
+    appsocket = None
+
+    if vhost.apptype == 0x20: # uwsgi apps
+        # FIXME: Make check on vhost.applocation
+        filename = options['output-emperor']+vhost.user.username+'_'+vhost.name+'.ini'
+        logging.debug('-> uwsgi app: '+filename)
+        appsocket = '/var/lib/uwsgi/app_%s_%s.sock' %(vhost.user.username, vhost.name)
+        fh = open(filename, 'w')
+        fh.write('[uwsgi]\n')
+        fh.write('master = true\n')
+        fh.write('processes = 1\n')
+        fh.write('socket = %s\n'%appsocket)
+        fh.write('wsgi-file = %s/wsgi.py\n' % vhost.applocation)
+        fh.write('chown-socket = %s:www-data\n' % vhost.user.username)
+        fh.write('chmod-socket = 660\n')
+        fh.write('uid = %s\n' % vhost.user.username)
+        fh.write('gid = %s\n' % vhost.user.username)
+        fh.write('env = PYTHONUSERBASE=/home/%s/.local/\n' % vhost.user.username)
+        fh.write('logto2 = /home/%s/logs/%s_app.log\n' % (vhost.user.username, vhost.name))
+        fh.write('logfile-chown = %s\n' % vhost.user.username)
+        fh.write('plugins = python32\n')
+        fh.write('chdir = %s\n' % vhost.applocation)
+        fh.write('cheap = true\n')
+#        fh.write('threads = 2')
+        fh.write('idle = 64\n')
+        fh.write('harakiri = 60\n')
+        fh.write('limit-as = 256\n')
+        fh.write('max-requests = 100\n')
+        fh.write('vacuum = true\n')
+        fh.write('enable-threads = true\n')
+        fh.write('\n')
+        fh.close()
+
     for d in vhost.domains:
         logging.debug('-> domain: %s'%d.domain)
     fhNginx.write(tplNginx.render(
@@ -221,6 +305,7 @@ for vhost in vhosts:
         error_pages = vhost.errorpages,
         acl = vhost.acls,
         apptype = vhost.apptype,
+        appsocket = appsocket,
         applocation = vhost.applocation,
     ))
 fhNginx.close()
