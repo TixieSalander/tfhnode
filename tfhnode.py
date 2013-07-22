@@ -34,6 +34,7 @@ from grp import getgrnam
 # - DNS
 # - Postfix SQL queries on multiple lines.
 # - Use templates for --make-* and emperor
+# - move postfix/ to output/, use output-postfix
 
 options = {
     'db' : 'postgresql+psycopg2://tfhdev@localhost/tfhdev',
@@ -109,7 +110,7 @@ if options['create-tables']:
 if options['make-postfix']:
     print('Generating postfix scripts...')
     header = 'hosts = %s\nuser = %s\npassword = %s\ndbname = %s\n'%(
-        dbe.url.host, dbe.url.username, dbe.url.password, dbe.url.database)
+        dbe.url.host, 'tfh_node_passwd', 'passwdfile', dbe.url.database)
     files = {
         'domains' : "SELECT '%s' AS output FROM mailboxes LEFT JOIN domains ON domains.id = mailboxes.domainid WHERE domain='%s' LIMIT 1;",
         'boxes' : "SELECT '%d/%u' FROM mailboxes LEFT JOIN domains ON domains.id = mailboxes.domainid WHERE local_part='%u' AND domain='%d' AND redirect IS NULL",
@@ -129,9 +130,10 @@ if options['make-pam-pgsql']:
     fh = open(options['output-pam-pgsql'], 'w')
     fh.write('connect = host=%s dbname=%s user=%s password=%s\n'%(
         dbe.url.host, dbe.url.database, dbe.url.username, dbe.url.password))
+    fh.write('pw_type = sha512\n')
     fh.write('auth_query = select password from users where username = %u\n')
     fh.write('pwd_query = update users set password = %p where username = %u\n')
-    fh.write('acct_query = select FALSE, FALSE, (password is NULL or password = '') from users where username = %u\n')
+    fh.write('acct_query = select FALSE, FALSE, (password is NULL or password = \'\') from users where username = %u\n')
     fh.close();
     exit(0);
     
@@ -140,19 +142,21 @@ if options['make-nss-pgsql']:
     fh = open(options['output-nss-pgsql'], 'w')
     fh.write('connectionstring = host=%s dbname=%s user=%s password=%s\n'%(
         dbe.url.host, dbe.url.database, dbe.url.username, dbe.url.password))
-    fh.write('getpwnam = select username, \'x\' as passwd, \'\' as gecos, (\'/home/\' || username) as homedir, COALESCE(shell, \'/bin/bash\'), (id+1000) as uid, (groupid+1000) as gid from users where username = $1\n')
-    fh.write('getpwuid = select username, \'x\' as passwd, \'\' as gecos, (\'/home/\' || username) as homedir, COALESCE(shell, \'/bin/bash\'), (id+1000) as uid, (groupid+1000) as gid from users where id = ($1 - 1000)\n')
+    fh.write('getpwnam = select username, \'x\' as passwd, \'\' as gecos, (\'/home/\' || username) as homedir, COALESCE(shell, \'/bin/bash\'), (id) as uid, (groupid) as gid from users where username = $1\n')
+    fh.write('getpwuid = select username, \'x\' as passwd, \'\' as gecos, (\'/home/\' || username) as homedir, COALESCE(shell, \'/bin/bash\'), (id) as uid, (groupid) as gid from users where id = ($1)\n')
+    fh.write('allusers = select username, \'x\' as passwd, \'\' as gecos, (\'/home/\' || username) as homedir, COALESCE(shell, \'/bin/bash\'), (id) as uid, (groupid) as gid from users\n')
     fh.write('getgroupmembersbygid = select username from users where groupid = $1\n')
-    fh.write('getgrnam = select name as groupname, \'x\', (id+1000) as gid, ARRAY(SELECT username from users where groupid = groups.id) as members FROM groups WHERE name = $1\n')
-    fh.write('getgrgid = select name as groupname, \'x\', (id+1000) as gid, ARRAY(SELECT username from users where groupid = groups.id) as members FROM groups WHERE id = $1-1000\n')
-    fh.write('groups_dyn = select groupid from users where groupid = $1 AND groupid <> $2 \n') # wtf.
+    fh.write('getgrnam = select name as groupname, \'x\', (id) as gid, ARRAY(SELECT username from users where groupid = groups.id) as members FROM groups WHERE name = $1\n')
+    fh.write('getgrgid = select name as groupname, \'x\', (id) as gid, ARRAY(SELECT username from users where groupid = groups.id) as members FROM groups WHERE id = $1\n')
+    fh.write('allgroups = select name as groupname, \'x\', (id) as gid, ARRAY(SELECT username from users where groupid = groups.id) as members FROM groups\n')
+    fh.write('groups_dyn = select groupid from users where username = $1 AND groupid <> $2 \n') # wtf.
     fh.close();
     exit(0);
 
 if options['make-nss-pgsql-root']:
     print('Generating nss-pgsql-root.conf...')
     fh = open(options['output-nss-pgsql-root'], 'w')
-    fh.write('connectionstring = host=%s dbname=%s user=%s password=%s\n'%(
+    fh.write('shadowconnectionstring = host=%s dbname=%s user=%s password=%s\n'%(
         dbe.url.host, dbe.url.database, dbe.url.username, dbe.url.password))
     fh.write('shadowbyname = select username as shadow_name, password as shadow_passwd, 15066 AS shadow_lstchg, 0 AS shadow_min, 99999 AS shadow_max, 7 AS shadow_warn, 7 AS shadow_inact, 99999 AS shadow_expire, 0 AS shadow_flag from users where username = $1 and password is not NULL and password != \'\'\n')
     fh.write('shadow = select username as shadow_name, password as shadow_passwd, 15066 AS shadow_lstchg, 0 AS shadow_min, 99999 AS shadow_max, 7 AS shadow_warn, 7 AS shadow_inact, 99999 AS shadow_expire, 0 AS shadow_flag from users where password is not NULL and password != \'\'\n')
