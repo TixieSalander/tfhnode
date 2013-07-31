@@ -23,7 +23,7 @@ from mako.template import Template
 from sqlalchemy import func
 from pwd import getpwnam
 from spwd import getspnam
-from grp import getgrnam
+from grp import getgrnam, getgrgid
 
 # TODO:
 # - CHMOD 700 ON GENERATED FILES. 
@@ -267,7 +267,7 @@ for vhost in vhosts:
         fh.write('chown-socket = %s:www-data\n' % vhost.user.username)
         fh.write('chmod-socket = 660\n')
         fh.write('uid = %s\n' % vhost.user.username)
-        fh.write('gid = %s\n' % vhost.user.username)
+        fh.write('gid = %s\n' % getgrgid(getpwnam(vhost.user.username).pw_gid).gr_name)
         fh.write('env = PYTHONUSERBASE=/home/%s/.local/\n' % vhost.user.username)
         fh.write('logto2 = /home/%s/logs/%s_app.log\n' % (vhost.user.username, vhost.name))
         fh.write('logfile-chown = %s\n' % vhost.user.username)
