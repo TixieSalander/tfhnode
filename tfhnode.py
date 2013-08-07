@@ -16,6 +16,7 @@ import sys
 import datetime
 import os
 import socket
+import subprocess
 from models import *
 from sqlalchemy import *
 from sqlalchemy.orm import sessionmaker
@@ -28,13 +29,12 @@ from grp import getgrnam, getgrgid
 # TODO:
 # - CHMOD 700 ON GENERATED FILES. 
 #   ^^^ SERIOUSLY, DO IT
-# - Create home directory if it does not exists
 # - require domain to be verified
-# - reload services
 # - DNS
 # - Postfix SQL queries on multiple lines.
 # - Use templates for --make-* and emperor
 # - move postfix/ to output/, use output-postfix
+# - chown -R /home/<user> when created
 
 options = {
     'db' : 'postgresql+psycopg2://tfhdev@localhost/tfhdev',
@@ -302,6 +302,21 @@ for vhost in vhosts:
         applocation = vhost.applocation,
     ))
 fhNginx.close()
+
+signals = {
+    # (process, signal, pidfile)
+    ('php5-fpm', 'SIGUSR2', '/run/php5-fpm.pid'),
+    ('nginx', 'SIGHUP', '/run/nginx.pid'),
+}
+for process, signal, pidfile in signals:
+    try:
+        pid = int(open(pidfile).read())
+        r = subprocess.call(['kill', '-'+signal, str(pid)])
+        if r != 0:
+            logging.error('Failed to sent %s to %s!', signal, process)
+    except FileNotFoundError:
+        logging.warning('Pidfile not found for '+process)
+        continue
 
 server.lastupdate = datetime.datetime.now()
 dbs.commit()
