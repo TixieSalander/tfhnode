@@ -110,7 +110,7 @@ if options['create-tables']:
 if options['make-postfix']:
     print('Generating postfix scripts...')
     header = 'hosts = %s\nuser = %s\npassword = %s\ndbname = %s\n'%(
-        dbe.url.host, 'tfh_node_passwd', 'passwdfile', dbe.url.database)
+        dbe.url.host, dbe.url.username, dbe.url.password, dbe.url.database)
     files = {
         'domains' : "SELECT '%s' AS output FROM mailboxes LEFT JOIN domains ON domains.id = mailboxes.domainid WHERE domain='%s' LIMIT 1;",
         'boxes' : "SELECT '%d/%u' FROM mailboxes LEFT JOIN domains ON domains.id = mailboxes.domainid WHERE local_part='%u' AND domain='%d' AND redirect IS NULL",
@@ -268,10 +268,11 @@ for vhost in vhosts:
         fh.write('chmod-socket = 660\n')
         fh.write('uid = %s\n' % vhost.user.username)
         fh.write('gid = %s\n' % getgrgid(getpwnam(vhost.user.username).pw_gid).gr_name)
+        fh.write('env = HOME=/home/%s/\n' % vhost.user.username)
         fh.write('env = PYTHONUSERBASE=/home/%s/.local/\n' % vhost.user.username)
         fh.write('logto2 = /home/%s/logs/%s_app.log\n' % (vhost.user.username, vhost.name))
         fh.write('logfile-chown = %s\n' % vhost.user.username)
-        fh.write('plugins = python32\n')
+        fh.write('plugins = python3\n')
         fh.write('chdir = %s\n' % vhost.applocation)
         fh.write('cheap = true\n')
 #        fh.write('threads = 2')
@@ -286,8 +287,11 @@ for vhost in vhosts:
 
     for d in vhost.domains:
         logging.debug('-> domain: %s'%d.domain)
+    addresses = ['127.0.0.1', server.ipv4]
+    if server.ipv6:
+        addresses.append(server.ipv6)
     fhNginx.write(tplNginx.render(
-        listen_addr = (server.ipv4, server.ipv6),
+        listen_addr = addresses,
         user = vhost.user.username,
         name = vhost.name,
         pubdir = pubdir,
