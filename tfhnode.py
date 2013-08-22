@@ -26,13 +26,8 @@ from pwd import getpwnam
 from grp import getgrnam, getgrgid
 
 # TODO:
-# - CHMOD 700 ON GENERATED FILES. 
-#   ^^^ SERIOUSLY, DO IT
 # - require domain to be verified
 # - DNS
-# - Postfix SQL queries on multiple lines.
-# - Use templates for --make-* and emperor
-# - move postfix/ to output/, use output-postfix
 # - chown -R /home/<user> when created
 
 options = {
@@ -40,29 +35,25 @@ options = {
     'output-php' : './output/phpfpm/%s.conf',
     'output-emperor' : './output/emperor/',
     'output-nginx' : './output/nginx.conf',
-    'password-scheme' : 'SHA512-CRYPT',
 }
 
-parser = ArgumentParser(description=__doc__,
-    formatter_class=RawDescriptionHelpFormatter)
+config = ConfigParser()
+config.read('./tfhnode.ini')
+if 'node' in config:
+    for d in config.items('node'):
+        options[d[0]] = d[1]
+
+parser = ArgumentParser(description=__doc__)
+parser.set_defaults(**options)
 parser.add_argument('-v', '--verbose', action='store_true',
     default=None, dest='verbose', help='Increase verbosity')
 
 for option in options:
     parser.add_argument('--'+option, action='store', dest=option)
 
-
 cli_options = vars(parser.parse_args())
-config = ConfigParser()
-config.read('./tfhnode.ini')
-if 'node' in config:
-    for d in config.items('node'):
-        options[d[0]] = d[1]
-else:
-    options = dict()
-for key in dict(cli_options).keys():
-    if cli_options[key] is not None:
-        options[key] = cli_options[key]
+for o in cli_options:
+    options[o] = cli_options[o]
 
 log_level = logging.WARNING
 if options['verbose'] != None:
