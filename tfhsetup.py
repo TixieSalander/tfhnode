@@ -86,7 +86,7 @@ def gen_dovecot(output):
 
 def gen_postfix(output):
     header = 'hosts = %s\nuser = %s\npassword = %s\ndbname = %s\n'%(
-        dbe.url.host, dbe.url.username, dbe.url.password, dbe.url.database)
+        dbe.url.host, dbe.url.username, dbe.url.password or '', dbe.url.database)
     files = {
         'domains' : "SELECT '%s' AS output FROM mailboxes LEFT JOIN domains ON domains.id = mailboxes.domainid WHERE domain='%s' LIMIT 1;",
         'boxes' : "SELECT '%d/%u' FROM mailboxes LEFT JOIN domains ON domains.id = mailboxes.domainid WHERE local_part='%u' AND domain='%d' AND redirect IS NULL",
