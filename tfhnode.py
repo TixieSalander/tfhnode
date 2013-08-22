@@ -40,27 +40,11 @@ options = {
     'output-php' : './output/phpfpm/%s.conf',
     'output-emperor' : './output/emperor/',
     'output-nginx' : './output/nginx.conf',
-    'output-dovecot' : './output/dovecot-sql.conf',
-    'output-pam-pgsql' : './output/pam_pgsql.conf',
-    'output-nss-pgsql' : './output/nss-pgsql.conf',
-    'output-nss-pgsql-root' : './output/nss-pgsql-root.conf',
     'password-scheme' : 'SHA512-CRYPT',
 }
 
 parser = ArgumentParser(description=__doc__,
     formatter_class=RawDescriptionHelpFormatter)
-parser.add_argument('--create-tables', action='store_true',
-    dest='create-tables', help='Create tables and exit.')
-parser.add_argument('--make-postfix', action='store_true',
-    dest='make-postfix', help='Generate postfix scripts and exit.')
-parser.add_argument('--make-dovecot', action='store_true',
-    dest='make-dovecot', help='Generate dovecot scripts and exit.')
-parser.add_argument('--make-pam-pgsql', action='store_true',
-    dest='make-pam-pgsql', help='Generate pam_pgsql.conf and exit.')
-parser.add_argument('--make-nss-pgsql', action='store_true',
-    dest='make-nss-pgsql', help='Generate nss_pgsql.conf and exit.')
-parser.add_argument('--make-nss-pgsql-root', action='store_true',
-    dest='make-nss-pgsql-root', help='Generate nss_pgsql-root.conf and exit.')
 parser.add_argument('-v', '--verbose', action='store_true',
     default=None, dest='verbose', help='Increase verbosity')
 
@@ -90,77 +74,6 @@ if options['verbose'] != None:
 logging.basicConfig(level=log_level)
 
 dbe = create_engine(options['db'])
-
-if options['create-tables']:
-    print('Creating tables...', end='')
-    Base.metadata.create_all(dbe)
-    exit(0)
-
-if options['make-postfix']:
-    print('Generating postfix scripts...')
-    header = 'hosts = %s\nuser = %s\npassword = %s\ndbname = %s\n'%(
-        dbe.url.host, dbe.url.username, dbe.url.password, dbe.url.database)
-    files = {
-        'domains' : "SELECT '%s' AS output FROM mailboxes LEFT JOIN domains ON domains.id = mailboxes.domainid WHERE domain='%s' LIMIT 1;",
-        'boxes' : "SELECT '%d/%u' FROM mailboxes LEFT JOIN domains ON domains.id = mailboxes.domainid WHERE local_part='%u' AND domain='%d' AND redirect IS NULL",
-        'aliases' : "SELECT redirect FROM mailboxes LEFT JOIN domains ON domains.id = mailboxes.domainid WHERE (local_part='%u' AND domain='%d' AND redirect IS NOT NULL) OR (local_part IS NULL AND domain='%d' AND redirect IS NOT NULL AND (SELECT COUNT(*) FROM mailboxes LEFT JOIN domains ON domains.id = mailboxes.domainid WHERE local_part='%u' AND domain='%d') = 0)",
-    }
-    if not os.path.isdir('./postfix'):
-        os.makedirs('./postfix')
-    for f in files.keys():
-        fh=open('./postfix/'+f+'.cf', 'w')
-        fh.write(header)
-        fh.write('query = '+files[f]+'\n')
-        fh.close()
-    exit(0)
-
-if options['make-pam-pgsql']:
-    print('Generating pam_pgsql.conf...')
-    tpl = Template(filename='./templates/pam_pgsql.conf')
-    fh = open(options['output-pam-pgsql'], 'w')
-    fh.write(tpl.render(
-        host=dbe.url.host, db=dbe.url.database,
-        user=dbe.url.username, password=dbe.url.password,
-    ))
-    fh.close()
-    exit(0);
-    
-if options['make-nss-pgsql']:
-    print('Generating nss-pgsql.conf...')
-    tpl = Template(filename='./templates/nss-pgsql.conf')
-    fh = open(options['output-nss-pgsql'], 'w')
-    fh.write(tpl.render(
-        host=dbe.url.host, db=dbe.url.database,
-        user='tfh_node_passwd', password='passwdfile',
-    ))
-    # passwd db need to be readable by every user.
-    # tfh_node_passwd should only be able to read needed columns on that table
-    fh.close()
-    exit(0);
-
-if options['make-nss-pgsql-root']:
-    print('Generating nss-pgsql-root.conf...')
-    tpl = Template(filename='./templates/nss-pgsql-root.conf')
-    fh = open(options['output-nss-pgsql-root'], 'w')
-    fh.write(tpl.render(
-        host=dbe.url.host, db=dbe.url.database,
-        user=dbe.url.username, password=dbe.url.password,
-    ))
-    fh.close()
-    exit(0);
-
-if options['make-dovecot']:
-    print('Generating dovecot-sql.conf...')
-    tpl = Template(filename='./templates/dovecot-sql.conf')
-    fh = open(options['output-dovecot'], 'w')
-    fh.write(tpl.render(
-        host=dbe.url.host, db=dbe.url.database,
-        user=dbe.url.username, password=dbe.url.password,
-        passwdscheme=options['password-scheme'],
-    ))
-    fh.close()
-    exit(0);
-
 dbs = sessionmaker(bind=dbe)()
 
 if 'hostname' in options and options['hostname']:
