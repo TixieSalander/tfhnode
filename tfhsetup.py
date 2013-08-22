@@ -82,7 +82,7 @@ def gen_dovecot(output):
         passwdscheme=options['password-scheme'],
     ))
     fh.close()
-    os.chmod(output, 600)
+    os.chmod(output, 0o600)
 
 def gen_postfix(output):
     header = 'hosts = %s\nuser = %s\npassword = %s\ndbname = %s\n'%(
@@ -100,7 +100,7 @@ def gen_postfix(output):
         fh.write(header)
         fh.write('query = '+files[f]+'\n')
         fh.close()
-        os.chmod(filename, 600)
+        os.chmod(filename, 0o600)
 
 
 def gen_pam_pgsql(output):
@@ -111,7 +111,7 @@ def gen_pam_pgsql(output):
         user=dbe.url.username, password=dbe.url.password,
     ))
     fh.close()
-    os.chmod(output, 600)
+    os.chmod(output, 0o600)
     
 def gen_nss_pgsql(output):
     tpl = Template(filename='./templates/nss-pgsql.conf')
@@ -123,7 +123,7 @@ def gen_nss_pgsql(output):
     # passwd db need to be readable by every user.
     # tfh_node_passwd should only be able to read needed columns on that table
     fh.close()
-    os.chmod(output, 644)
+    os.chmod(output, 0o644)
 
 def gen_nss_pgsql_root(output):
     tpl = Template(filename='./templates/nss-pgsql-root.conf')
@@ -133,7 +133,7 @@ def gen_nss_pgsql_root(output):
         user=dbe.url.username, password=dbe.url.password,
     ))
     fh.close()
-    os.chmod(output, 600)
+    os.chmod(output, 0o600)
 
 make_all = 'make-all' in options and options['make-all']
 made_something = False
@@ -146,7 +146,7 @@ for generator in generators:
     make_that = 'make-'+name in options and options['make-'+name]
     if make_all or make_that:
         made_something = True
-        if options['output-'+name]:
+        if 'output-'+name in options:
             output = options['output-'+name]
             locals()[function](output)
             logging.info('generated: '+output)
