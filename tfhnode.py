@@ -23,7 +23,6 @@ from sqlalchemy.orm import sessionmaker
 from mako.template import Template
 from sqlalchemy import func
 from pwd import getpwnam
-from spwd import getspnam
 from grp import getgrnam, getgrgid
 
 # TODO:
@@ -45,6 +44,7 @@ options = {
     'output-pam-pgsql' : './output/pam_pgsql.conf',
     'output-nss-pgsql' : './output/nss-pgsql.conf',
     'output-nss-pgsql-root' : './output/nss-pgsql-root.conf',
+    'password-scheme' : 'SHA512-CRYPT',
 }
 
 parser = ArgumentParser(description=__doc__,
@@ -63,20 +63,10 @@ parser.add_argument('--make-nss-pgsql-root', action='store_true',
     dest='make-nss-pgsql-root', help='Generate nss_pgsql-root.conf and exit.')
 parser.add_argument('-v', '--verbose', action='store_true',
     default=None, dest='verbose', help='Increase verbosity')
-parser.add_argument('--db', action='store', dest='db',
-    help='Set database info.')
-parser.add_argument('--output-php', action='store',
-    dest='output-php', help='Set PHP config file. %%s=user_vhost')
-parser.add_argument('--output-emperor', action='store',
-    dest='output-emperor', help='Set supervisor config file. %%s=user')
-parser.add_argument('--output-nginx', action='store',
-    dest='output-nginx', help='Set nginx config file.')
-parser.add_argument('--output-dovecot', action='store',
-    dest='output-dovecot', help='Set dovecot config file.')
-parser.add_argument('--output-pam-pgsql', action='store',
-    dest='output-pam-pgsql', help='Set pam_pgsql.conf location.')
-parser.add_argument('--hostname', action='store',
-    dest='hostname', help='Set hostname. Use system\'s if omitted.')
+
+for option in options:
+    parser.add_argument('--'+option, action='store', dest=option)
+
 
 cli_options = vars(parser.parse_args())
 config = ConfigParser()
@@ -104,7 +94,6 @@ dbe = create_engine(options['db'])
 if options['create-tables']:
     print('Creating tables...', end='')
     Base.metadata.create_all(dbe)
-    print('DONE.')
     exit(0)
 
 if options['make-postfix']:
@@ -127,59 +116,54 @@ if options['make-postfix']:
 
 if options['make-pam-pgsql']:
     print('Generating pam_pgsql.conf...')
+    tpl = Template(filename='./templates/pam_pgsql.conf')
     fh = open(options['output-pam-pgsql'], 'w')
-    fh.write('connect = host=%s dbname=%s user=%s password=%s\n'%(
-        dbe.url.host, dbe.url.database, dbe.url.username, dbe.url.password))
-    fh.write('pw_type = sha512\n')
-    fh.write('auth_query = select password from users where username = %u\n')
-    fh.write('pwd_query = update users set password = %p where username = %u\n')
-    fh.write('acct_query = select FALSE, FALSE, (password is NULL or password = \'\') from users where username = %u\n')
-    fh.close();
+    fh.write(tpl.render(
+        host=dbe.url.host, db=dbe.url.database,
+        user=dbe.url.username, password=dbe.url.password,
+    ))
+    fh.close()
     exit(0);
     
 if options['make-nss-pgsql']:
     print('Generating nss-pgsql.conf...')
+    tpl = Template(filename='./templates/nss-pgsql.conf')
     fh = open(options['output-nss-pgsql'], 'w')
-    fh.write('connectionstring = host=%s dbname=%s user=%s password=%s\n'%(
-        dbe.url.host, dbe.url.database, dbe.url.username, dbe.url.password))
-    fh.write('getpwnam = select username, \'x\' as passwd, \'\' as gecos, (\'/home/\' || username) as homedir, COALESCE(shell, \'/bin/bash\'), (id) as uid, (groupid) as gid from users where username = $1\n')
-    fh.write('getpwuid = select username, \'x\' as passwd, \'\' as gecos, (\'/home/\' || username) as homedir, COALESCE(shell, \'/bin/bash\'), (id) as uid, (groupid) as gid from users where id = ($1)\n')
-    fh.write('allusers = select username, \'x\' as passwd, \'\' as gecos, (\'/home/\' || username) as homedir, COALESCE(shell, \'/bin/bash\'), (id) as uid, (groupid) as gid from users\n')
-    fh.write('getgroupmembersbygid = select username from users where groupid = $1\n')
-    fh.write('getgrnam = select name as groupname, \'x\', (id) as gid, ARRAY(SELECT username from users where groupid = groups.id) as members FROM groups WHERE name = $1\n')
-    fh.write('getgrgid = select name as groupname, \'x\', (id) as gid, ARRAY(SELECT username from users where groupid = groups.id) as members FROM groups WHERE id = $1\n')
-    fh.write('allgroups = select name as groupname, \'x\', (id) as gid, ARRAY(SELECT username from users where groupid = groups.id) as members FROM groups\n')
-    fh.write('groups_dyn = select groupid from users where username = $1 AND groupid <> $2 \n') # wtf.
-    fh.close();
+    fh.write(tpl.render(
+        host=dbe.url.host, db=dbe.url.database,
+        user='tfh_node_passwd', password='passwdfile',
+    ))
+    # passwd db need to be readable by every user.
+    # tfh_node_passwd should only be able to read needed columns on that table
+    fh.close()
     exit(0);
 
 if options['make-nss-pgsql-root']:
     print('Generating nss-pgsql-root.conf...')
+    tpl = Template(filename='./templates/nss-pgsql-root.conf')
     fh = open(options['output-nss-pgsql-root'], 'w')
-    fh.write('shadowconnectionstring = host=%s dbname=%s user=%s password=%s\n'%(
-        dbe.url.host, dbe.url.database, dbe.url.username, dbe.url.password))
-    fh.write('shadowbyname = select username as shadow_name, COALESCE(password, \'*\') as shadow_passwd, 15066 AS shadow_lstchg, 0 AS shadow_min, 99999 AS shadow_max, 7 AS shadow_warn, 7 AS shadow_inact, 99999 AS shadow_expire, 0 AS shadow_flag from users where username = $1\n')
-    fh.write('shadow = select username as shadow_name, COALESCE(password, \'*\') as shadow_passwd, 15066 AS shadow_lstchg, 0 AS shadow_min, 99999 AS shadow_max, 7 AS shadow_warn, 7 AS shadow_inact, 99999 AS shadow_expire, 0 AS shadow_flag from users\n')
-    fh.close();
+    fh.write(tpl.render(
+        host=dbe.url.host, db=dbe.url.database,
+        user=dbe.url.username, password=dbe.url.password,
+    ))
+    fh.close()
     exit(0);
 
 if options['make-dovecot']:
-    print('Generating dovecot scripts...')
-    vmailuid = getpwnam('vmail').pw_uid
-    vmailgid = getgrnam('vmail').gr_gid
+    print('Generating dovecot-sql.conf...')
+    tpl = Template(filename='./templates/dovecot-sql.conf')
     fh = open(options['output-dovecot'], 'w')
-    fh.write('driver = pgsql\n')
-    fh.write('connect = host=%s dbname=%s user=%s password=%s\n'%(
-        dbe.url.host, dbe.url.database, dbe.url.username, dbe.url.password))
-    fh.write('default_pass_scheme = SHA512-CRYPT\n')
-    fh.write("password_query = SELECT '%u' as user, password FROM mailboxes LEFT JOIN domains ON domains.id = mailboxes.domainid WHERE local_part='%n' AND domain='%d'\n")
-    fh.write('\n')
+    fh.write(tpl.render(
+        host=dbe.url.host, db=dbe.url.database,
+        user=dbe.url.username, password=dbe.url.password,
+        passwdscheme=options['password-scheme'],
+    ))
     fh.close()
-    exit(0)
+    exit(0);
 
 dbs = sessionmaker(bind=dbe)()
 
-if 'hostname' in options:
+if 'hostname' in options and options['hostname']:
     hostname = options[hostname]
 else:
     hostname = socket.gethostname()
@@ -255,34 +239,14 @@ for vhost in vhosts:
 
     if vhost.apptype == 0x20: # uwsgi apps
         # FIXME: Make check on vhost.applocation
+        tpl = Template(filename='./templates/uwsgi.conf')
         filename = options['output-emperor']+vhost.user.username+'_'+vhost.name+'.ini'
         logging.debug('-> uwsgi app: '+filename)
         appsocket = '/var/lib/uwsgi/app_%s_%s.sock' %(vhost.user.username, vhost.name)
         fh = open(filename, 'w')
-        fh.write('[uwsgi]\n')
-        fh.write('master = true\n')
-        fh.write('processes = 1\n')
-        fh.write('socket = %s\n'%appsocket)
-        fh.write('wsgi-file = %s/wsgi.py\n' % vhost.applocation)
-        fh.write('chown-socket = %s:www-data\n' % vhost.user.username)
-        fh.write('chmod-socket = 660\n')
-        fh.write('uid = %s\n' % vhost.user.username)
-        fh.write('gid = %s\n' % getgrgid(getpwnam(vhost.user.username).pw_gid).gr_name)
-        fh.write('env = HOME=/home/%s/\n' % vhost.user.username)
-        fh.write('env = PYTHONUSERBASE=/home/%s/.local/\n' % vhost.user.username)
-        fh.write('logto2 = /home/%s/logs/%s_app.log\n' % (vhost.user.username, vhost.name))
-        fh.write('logfile-chown = %s\n' % vhost.user.username)
-        fh.write('plugins = python3\n')
-        fh.write('chdir = %s\n' % vhost.applocation)
-        fh.write('cheap = true\n')
-#        fh.write('threads = 2')
-        fh.write('idle = 64\n')
-        fh.write('harakiri = 60\n')
-        fh.write('limit-as = 256\n')
-        fh.write('max-requests = 100\n')
-        fh.write('vacuum = true\n')
-        fh.write('enable-threads = true\n')
-        fh.write('\n')
+        fh.write(tpl.render(
+            vhost=vhost, user=vhost.user,
+        ))
         fh.close()
 
     for d in vhost.domains:
