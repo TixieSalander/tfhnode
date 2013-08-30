@@ -46,7 +46,7 @@ if 'node' in config:
 
 parser = ArgumentParser(description=__doc__)
 parser.set_defaults(**options)
-parser.add_argument('-v', '--verbose', action='store_true',
+parser.add_argument('-v', '--verbose', action='count',
     default=None, dest='verbose', help='Increase verbosity')
 
 for option in options:
@@ -115,16 +115,18 @@ def get_ssl_certs(vhost):
     base = '/home/%s/ssl/%s' % (vhost.user.username, vhost.name)
     user_cert, user_key = base+'.crt', base+'.key'
     if os.path.isfile(user_cert) and os.path.isfile(user_key):
+        logging.debug('-> found user SSL cert.')
         return (user_cert, user_key)
     
     # System-wide wildcard
     for domain in vhost.domains:
-        parts = domain.split('.')
+        parts = domain.domain.split('.')
         for i in range(1, len(parts)-1):
             hmm = '.'.join(parts[i:])
             cert = '/etc/ssl/tfhcerts/wildcard.%s.crt' % (hmm)
             key  = '/etc/ssl/tfhkeys/wildcard.%s.key' % (hmm)
             if os.path.isfile(cert) and os.path.isfile(key):
+                logging.debug('-> found wildcard SSL cert.')
                 return (cert, key)
 
     # None found, cannot enable SSL
@@ -168,7 +170,7 @@ for vhost in vhosts:
 
     if vhost.apptype == 0x20: # uwsgi apps
         # FIXME: Make check on vhost.applocation
-        tpl = Template(filename='./templates/uwsgi.conf')
+        tpl = Template(filename='./templates/uwsgi.ini')
         filename = options['output-emperor']+vhost.user.username+'_'+vhost.name+'.ini'
         logging.debug('-> uwsgi app: '+filename)
         appsocket = '/var/lib/uwsgi/app_%s_%s.sock' %(vhost.user.username, vhost.name)
@@ -212,6 +214,30 @@ for vhost in vhosts:
         appsocket = appsocket,
         applocation = vhost.applocation,
     ))
+    
+    if ssl_enable:
+        # Add the same vhost without SSL
+        fhNginx.write(tplNginx.render(
+            listen_addr = addresses,
+            user = vhost.user.username,
+            name = vhost.name,
+            ssl_enable = False,
+            ssl_port = options['ssl-port'],
+            ssl_cert = None,
+            ssl_key = None,
+            pubdir = pubdir,
+            hostnames = ' '.join([d.domain for d in vhost.domains]),
+            autoindex = vhost.autoindex,
+            catchall = vhost.catchall,
+            rewrites = vhost.rewrites,
+            error_pages = vhost.errorpages,
+            acl = vhost.acls,
+            apptype = vhost.apptype,
+            appsocket = appsocket,
+            applocation = vhost.applocation,
+        ))
+        
+    
 fhNginx.close()
 
 signals = {
