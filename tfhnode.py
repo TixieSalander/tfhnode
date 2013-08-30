@@ -35,6 +35,7 @@ options = {
     'output-php' : './output/phpfpm/%s.conf',
     'output-emperor' : './output/emperor/',
     'output-nginx' : './output/nginx.conf',
+    'ssl-port' : '444',
 }
 
 config = ConfigParser()
@@ -49,6 +50,8 @@ parser.add_argument('-v', '--verbose', action='store_true',
     default=None, dest='verbose', help='Increase verbosity')
 
 for option in options:
+    if option == 'verbose':
+        continue
     parser.add_argument('--'+option, action='store', dest=option)
 
 cli_options = vars(parser.parse_args())
@@ -107,6 +110,28 @@ for user in users:
     ))
     fh.close()
 
+def get_ssl_certs(vhost):
+    # User-provided SSL cert
+    base = '/home/%s/ssl/%s' % (vhost.user.username, vhost.name)
+    user_cert, user_key = base+'.crt', base+'.key'
+    if os.path.isfile(user_cert) and os.path.isfile(user_key):
+        return (user_cert, user_key)
+    
+    # System-wide wildcard
+    for domain in vhost.domains:
+        parts = domain.split('.')
+        for i in range(0, len(parts)-1):
+            hmm = '.'.join(parts[i:])
+            cert = '/etc/ssl/tfhcerts/%s.crt' % (hmm)
+            key  = '/etc/ssl/tfhkeys/%s.key' % (hmm)
+            if os.path.isfile(cert) and os.path.isfile(key):
+                return (cert, key)
+
+    # None found, cannot enable SSL
+    # TODO: Generate a certificate/key for given vhost
+    #       If possible, signed with CACert.
+    return None
+
 fhNginx = open(options['output-nginx'], 'w')
 vhosts = dbs.query(VHosts).filter_by(server=server).all()
 for vhost in vhosts:
@@ -158,10 +183,24 @@ for vhost in vhosts:
     addresses = ['127.0.0.1', server.ipv4]
     if server.ipv6:
         addresses.append(server.ipv6)
+    
+    ssl_enable = False
+    ssl_cert = None
+    ssl_key = None
+    if vhost.ssl:
+        r = get_ssl_certs(vhost)
+        if r:
+            ssl_cert, ssl_key = r
+            ssl_enable = True
+        
     fhNginx.write(tplNginx.render(
         listen_addr = addresses,
         user = vhost.user.username,
         name = vhost.name,
+        ssl_enable = ssl_enable,
+        ssl_port = options['ssl-port'],
+        ssl_cert = ssl_cert,
+        ssl_key = ssl_key,
         pubdir = pubdir,
         hostnames = ' '.join([d.domain for d in vhost.domains]),
         autoindex = vhost.autoindex,

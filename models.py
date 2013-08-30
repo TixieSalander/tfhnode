@@ -107,6 +107,7 @@ class VHosts(Base):
     autoindex= Column(Boolean, nullable=False, default=False)
     apptype  = Column(BigInteger, nullable=False, default=0)
     applocation = Column(String(512))
+    ssl      = Column(Boolean, nullable=False, default=False)
     domains  = relationship('Domains', backref='vhost')
     rewrites = relationship('VHostRewrites', backref='vhost')
     acls     = relationship('VHostACLs', backref='vhost')
