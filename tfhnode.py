@@ -120,10 +120,10 @@ def get_ssl_certs(vhost):
     # System-wide wildcard
     for domain in vhost.domains:
         parts = domain.split('.')
-        for i in range(0, len(parts)-1):
+        for i in range(1, len(parts)-1):
             hmm = '.'.join(parts[i:])
-            cert = '/etc/ssl/tfhcerts/%s.crt' % (hmm)
-            key  = '/etc/ssl/tfhkeys/%s.key' % (hmm)
+            cert = '/etc/ssl/tfhcerts/wildcard.%s.crt' % (hmm)
+            key  = '/etc/ssl/tfhkeys/wildcard.%s.key' % (hmm)
             if os.path.isfile(cert) and os.path.isfile(key):
                 return (cert, key)
 
