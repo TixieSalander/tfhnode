@@ -12,17 +12,13 @@ output-nginx = ./output/nginx.conf
 from argparse import ArgumentParser, ArgumentError, RawDescriptionHelpFormatter
 from configparser import ConfigParser
 import logging
-import sys
 import datetime
 import os
 import socket
-import subprocess
 from models import *
 from services import *
 from sqlalchemy import *
 from sqlalchemy.orm import sessionmaker
-from mako.template import Template
-from sqlalchemy import func
 import psycopg2
 
 options = {
@@ -84,9 +80,6 @@ def main():
             os.makedirs(directory)
 
     dbe = create_engine(options['db'])
-    dbc = dbe.connect()
-    pg_conn = dbc.connection
-    pg_conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
     dbs = sessionmaker(bind=dbe)()
 
     server = get_server(dbs, options)
