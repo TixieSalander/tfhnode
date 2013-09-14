@@ -168,6 +168,7 @@ class UwsgiService(Service):
             logging.warning('vhost#%d/nginx: uwsgi app trying to get out its of /home')
             return
 
+        logging.info('-> uwsgi app')
         fh = open(filename, 'w')
         fh.write(self.template.render(
             vhost=vhost,
@@ -193,10 +194,11 @@ class PhpfpmService(Service):
     def generate_vhost(self, vhost):
         filename = self.output_dir + '%s.conf'%(vhost.user.username)
         # Never need to be changed, only created/deleted
-        if not os.path.isfile(filename):
+        if os.path.isfile(filename):
             return
+        logging.info('-> php for '+vhost.user.username)
         fh = open(filename, 'w')
-        fh.write(tplPhp.render(user=user.username))
+        fh.write(self.template.render(user=vhost.user.username))
         fh.close()
 
     def remove_vhost(self, vhost):

@@ -125,7 +125,8 @@ def gen_vhost_app(vhost, services):
         if vhost.apptype & apptype:
             service.generate_vhost(vhost)
         else:
-            service.remove_vhost(vhost)
+            #service.remove_vhost(vhost)
+            pass
 
 def reload_services(services):
     for service in services:
