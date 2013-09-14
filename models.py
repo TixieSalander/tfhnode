@@ -97,7 +97,7 @@ class VHosts(Base):
     
     id       = Column(Integer, primary_key=True)
     name     = Column(String(32), nullable=False)
-    path     = Column(String(256), nullable=True)
+#   path     = Column(String(256), nullable=True)
     userid   = Column(ForeignKey('users.id'), nullable=False)
     serverid = Column(ForeignKey('servers.id'), nullable=False)
     update   = Column(DateTime, onupdate=datetime.datetime.now)

@@ -73,46 +73,21 @@ class NginxService(Service):
         if len(vhost.domains) < 1:
             logging.warning('vhost#%d/nginx: no domain associated.'%(vhost.id))
             return
-            
-        if not vhost.path:
-            # Before vhost.path...
-            # TODO: Remove backward compatibility stuff and upgrade server
-            # TODO: vhost.path is not used. Is it useless?
-            pubdir = '/home/%s/http_%s/' % (vhost.user.username, vhost.name)
-            legacydir = '/home/%s/public_http/' % (vhost.user.username)
-            if not os.path.isdir(pubdir):
-                if os.path.isdir(legacydir):
-                    pubdir = legacydir
-                elif self.options['make-http-dirs']:
-                    os.makedirs(pubdir)
-                    os.system('chown %s:%s -R %s'%(
-                        user.username, user.username, pubdir))
-            else:
-                pubdir = os.path.abspath(vhost.path)
-                if not pubdir.startswith('/home/'+vhost.user.username+'/'):
-                    # Should not be out of user's /home
-                    logging.warning('vhost#%d/nginx: invalid path.')
-                    return
-                if not os.path.isdir(pubdir):
-                    logging.warning('vhost#%d/nginx: path does not exists.')
-                    return
-                if getpwuid(stat(pubdir).st_uid).pw_name != vhost.user.username:
-                    logging.warning('vhost#%d/nginx: path does not belong to user.')
-                    return
+        
+        pubdir = '/home/%s/http_%s/' % (vhost.user.username, vhost.name)
+        oldpubdir = '/home/%s/public_http/' % (vhost.user.username)
+        if not os.path.isdir(pubdir):
+            if os.path.isdir(oldpubdir):
+                # Use ~/public_http
+                pubdir = oldpubdir
+            elif self.options['make-http-dirs']:
+                os.makedirs(pubdir)
+                os.system('chown %s:%s -R %s'%(
+                    user.username, user.username, pubdir))
         
         appsocket = None
-
-        if vhost.apptype == 0x20: # uwsgi apps
-            # FIXME: Make check on vhost.applocation
-            tpl = Template(filename=os.path.join(os.path.dirname(__file__), 'templates/uwsgi.ini'))
-            filename = self.options['output-emperor']+vhost.user.username+'_'+vhost.name+'.ini'
-            logging.debug('-> uwsgi app: '+filename)
+        if vhost.apptype & 0x20: # uwsgi apps
             appsocket = '/var/lib/uwsgi/app_%s_%s.sock' %(vhost.user.username, vhost.name)
-            fh = open(filename, 'w')
-            fh.write(tpl.render(
-                vhost=vhost, user=vhost.user,
-            ))
-            fh.close()
         
         domains = []
         for d in vhost.domains:
@@ -161,7 +136,7 @@ class NginxService(Service):
                 user = vhost.user.username,
                 name = vhost.name,
                 ssl_enable = False,
-                ssl_port = options['ssl-port'],
+                ssl_port = self.options['ssl-port'],
                 ssl_cert = None,
                 ssl_key = None,
                 pubdir = pubdir,
@@ -184,13 +159,23 @@ class UwsgiService(Service):
         self.template = Template(filename=os.path.join(os.path.dirname(__file__), './templates/uwsgi.ini'))
 
     def generate_vhost(self, vhost):
-        # FIXME: Make check on vhost.applocation
         filename = self.output_dir + '/%s_%s.ini'%(
             vhost.user.username, vhost.name)
-        fh = open(filename, 'w')
-        fh.write(self.template.render(vhost=vhost, user=vhost.user))
-        fh.close()
 
+        real_location = '/home/'+vhost.user.username+'/'+vhost.applocation
+        real_location = os.path.realpath(real_location)
+        if not real_location.startswith('/home/'+vhost.user.username+'/'):
+            logging.warning('vhost#%d/nginx: uwsgi app trying to get out its of /home')
+            return
+
+        fh = open(filename, 'w')
+        fh.write(self.template.render(
+            vhost=vhost,
+            user=vhost.user,
+            real_location=real_location
+        ))
+        fh.close()
+        
     def remove_vhost(self, vhost):
         filename = self.output_dir + '/%s_%s.ini'%(
             vhost.user.username, vhost.name)
