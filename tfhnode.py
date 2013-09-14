@@ -35,6 +35,7 @@ options = {
     'gen-all' : True,
     'make-http-dirs' : True,
     'reload-services' : True,
+    'require-verified-domains' : True,
 }
 
 def main():

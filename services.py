@@ -105,7 +105,7 @@ class NginxService(Service):
         if vhost.apptype == 0x20: # uwsgi apps
             # FIXME: Make check on vhost.applocation
             tpl = Template(filename=os.path.join(os.path.dirname(__file__), 'templates/uwsgi.ini'))
-            filename = options['output-emperor']+vhost.user.username+'_'+vhost.name+'.ini'
+            filename = self.options['output-emperor']+vhost.user.username+'_'+vhost.name+'.ini'
             logging.debug('-> uwsgi app: '+filename)
             appsocket = '/var/lib/uwsgi/app_%s_%s.sock' %(vhost.user.username, vhost.name)
             fh = open(filename, 'w')
@@ -113,9 +113,13 @@ class NginxService(Service):
                 vhost=vhost, user=vhost.user,
             ))
             fh.close()
-
+        
+        domains = []
         for d in vhost.domains:
             logging.debug('-> domain: %s'%d.domain)
+            if not self.options['require-verified-domains'] or d.verified:
+                domains.append(d)
+
         addresses = ['127.0.0.1', '::1']
         if self.server.ipv4:
             addresses.append(self.server.ipv4)
@@ -139,7 +143,7 @@ class NginxService(Service):
             ssl_cert = ssl_cert,
             ssl_key = ssl_key,
             pubdir = pubdir,
-            hostnames = ' '.join([d.domain for d in vhost.domains]),
+            hostnames = ' '.join([d.domain for d in domains]),
             autoindex = vhost.autoindex,
             catchall = vhost.catchall,
             rewrites = vhost.rewrites,
