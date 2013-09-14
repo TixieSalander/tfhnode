@@ -128,7 +128,7 @@ def get_server(dbs, options):
 
 def gen_vhost_app(vhost, services):
     for apptype, service in services.items():
-        if vhost.apptype == apptype:
+        if vhost.apptype & apptype:
             service.generate_vhost(vhost)
         else:
             service.remove_vhost(vhost)
