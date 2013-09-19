@@ -15,8 +15,8 @@ import logging
 import datetime
 import os
 import socket
-from models import *
-from services import *
+from tfhnode.models import *
+from tfhnode.services import *
 from sqlalchemy import *
 from sqlalchemy.orm import sessionmaker
 import psycopg2

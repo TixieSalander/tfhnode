@@ -7,7 +7,7 @@ from argparse import ArgumentParser
 from configparser import ConfigParser
 import logging
 import os
-from models import *
+from tfhnode.models import *
 from sqlalchemy import *
 from mako.template import Template
 

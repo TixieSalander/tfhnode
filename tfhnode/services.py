@@ -1,4 +1,4 @@
-from models import VHosts, Users
+from .models import VHosts, Users
 from mako.template import Template
 import os
 import logging
