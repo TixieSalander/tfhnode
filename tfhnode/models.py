@@ -6,7 +6,7 @@ from sqlalchemy.ext.declarative import declarative_base
 Base = declarative_base()
 metadata = MetaData()
 
-class Users(Base):
+class User(Base):
     __tablename__ = 'users'
     id       = Column(Integer, primary_key=True)
     username = Column(String(32), unique=True, nullable=False)
@@ -15,12 +15,12 @@ class Users(Base):
     groupid  = Column(ForeignKey('groups.id'), nullable=False, default=0)
     signup_date = Column(DateTime, default=datetime.datetime.now, nullable=False)
     
-    vhosts   = relationship('VHosts', backref='user')
+    vhosts   = relationship('VHost', backref='user')
     logins   = relationship('LoginHistory', backref='user')
-    domains  = relationship('Domains', backref='user')
-    mailboxes= relationship('Mailboxes', backref='user')
+    domains  = relationship('Domain', backref='user')
+    mailboxes= relationship('Mailbox', backref='user')
 
-class Groups(Base):
+class Group(Base):
     __tablename__ = 'groups'
     id       = Column(Integer, primary_key=True)
     name     = Column(String(64), nullable=False)
@@ -28,7 +28,7 @@ class Groups(Base):
     perms    = Column(BigInteger, default=0, nullable=False)
     appperms = Column(BigInteger, default=0, nullable=False)
     
-    users    = relationship('Users', backref='group')
+    users    = relationship('User', backref='group')
 
 class LoginHistory(Base):
     __tablename__ = 'login_history'
@@ -38,7 +38,7 @@ class LoginHistory(Base):
     remote   = Column(String(64))
     useragent= Column(String(64))
 
-class Servers(Base):
+class Server(Base):
     __tablename__ = 'servers'
     id       = Column(Integer, primary_key=True)
     name     = Column(String(32), unique=True, nullable=False)
@@ -48,9 +48,9 @@ class Servers(Base):
     opened   = Column(Boolean, nullable=False)
     lastupdate = Column(DateTime, nullable=False, default=datetime.datetime.fromtimestamp(1))
     
-    vhosts   = relationship('VHosts', backref='server')
+    vhosts   = relationship('VHost', backref='server')
 
-class Domains(Base):
+class Domain(Base):
     __tablename__ = 'domains'
     id       = Column(Integer, primary_key=True)
     userid   = Column(ForeignKey('users.id'), nullable=False)
@@ -61,10 +61,10 @@ class Domains(Base):
     verified = Column(Boolean, nullable=False, default=False)
     verif_token = Column(String(64))
     
-    entries  = relationship('DomainEntries', backref='domain')
-    mailboxes= relationship('Mailboxes', backref='domain')
+    entries  = relationship('DomainEntry', backref='domain')
+    mailboxes= relationship('Mailbox', backref='domain')
 
-class DomainEntries(Base):
+class DomainEntry(Base):
     __tablename__ = 'domainentries'
     id       = Column(Integer, primary_key=True)
     domainid = Column(ForeignKey('domains.id'), nullable=False)
@@ -72,7 +72,7 @@ class DomainEntries(Base):
     rdatatype= Column(Integer, nullable=False)
     rdata    = Column(Text, nullable=False)
 
-class Mailboxes(Base):
+class Mailbox(Base):
     __tablename__ = 'mailboxes'
     id       = Column(Integer, primary_key=True)
     userid   = Column(ForeignKey('users.id'), nullable=False)
@@ -81,7 +81,7 @@ class Mailboxes(Base):
     password = Column(String(128))
     redirect = Column(String(512))
 
-class VHosts(Base):
+class VHost(Base):
     __tablename__ = 'vhosts'
     
     appTypes = {
@@ -107,12 +107,12 @@ class VHosts(Base):
     applocation = Column(String(512))
 #   ssl      = Column(Boolean, nullable=False, default=False)
     
-    domains  = relationship('Domains', backref='vhost')
-    rewrites = relationship('VHostRewrites', backref='vhost')
-    acls     = relationship('VHostACLs', backref='vhost')
-    errorpages=relationship('VHostErrorPages', backref='vhost')
+    domains  = relationship('Domain', backref='vhost')
+    rewrites = relationship('VHostRewrite', backref='vhost')
+    acls     = relationship('VHostACL', backref='vhost')
+    errorpages=relationship('VHostErrorPage', backref='vhost')
 
-class VHostRewrites(Base):
+class VHostRewrite(Base):
     __tablename__ = 'vhostrewrites'
     id       = Column(Integer, primary_key=True)
     vhostid  = Column(ForeignKey('vhosts.id'), nullable=False)
@@ -122,7 +122,7 @@ class VHostRewrites(Base):
     redirect_perm = Column(Boolean, nullable=False, default=False)
     last     = Column(Boolean, nullable=False, default=False)
 
-class VHostACLs(Base):
+class VHostACL(Base):
     __tablename__ = 'vhostacls'
     id       = Column(Integer, primary_key=True)
     title    = Column(String(256), nullable=False)
@@ -130,7 +130,7 @@ class VHostACLs(Base):
     regexp   = Column(String(256), nullable=False)
     passwd   = Column(String(256), nullable=False)
 
-class VHostErrorPages(Base):
+class VHostErrorPage(Base):
     __tablename__ = 'vhosterrorpages'
     id       = Column(Integer, primary_key=True)
     vhostid  = Column(ForeignKey('vhosts.id'), nullable=False)

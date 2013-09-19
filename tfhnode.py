@@ -94,7 +94,7 @@ def main():
         0x20 : uwsgi_service,
     }
 
-    vhosts = dbs.query(VHosts).filter_by(server=server).all()
+    vhosts = dbs.query(VHost).filter_by(server=server).all()
     nginx_service.clear()
     uwsgi_service.clear()
     phpfpm_service.clear()
@@ -112,7 +112,7 @@ def get_server(dbs, options):
     hostname = options['hostname'] or socket.gethostname()
     logging.info('server: hostname is %s'%(hostname))
 
-    server = dbs.query(Servers).filter_by(fqdn=hostname).first()
+    server = dbs.query(Server).filter_by(fqdn=hostname).first()
     if not server:
         logging.critical('server: Cannot find server id in database.')
         exit(1)
