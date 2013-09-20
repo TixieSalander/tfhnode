@@ -74,7 +74,7 @@ def gen_tables():
     Base.metadata.create_all(dbe)
 
 def gen_dovecot(output):
-    tpl = Template(filename='./templates/dovecot-sql.conf')
+    tpl = Template(filename='./tfhnode/templates/dovecot-sql.conf')
     fh = open(output, 'w')
     fh.write(tpl.render(
         host=dbe.url.host, db=dbe.url.database,
@@ -104,7 +104,7 @@ def gen_postfix(output):
 
 
 def gen_pam_pgsql(output):
-    tpl = Template(filename='./templates/pam_pgsql.conf')
+    tpl = Template(filename='./tfhnode/templates/pam_pgsql.conf')
     fh = open(output, 'w')
     fh.write(tpl.render(
         host=dbe.url.host, db=dbe.url.database,
@@ -114,7 +114,7 @@ def gen_pam_pgsql(output):
     os.chmod(output, 0o600)
     
 def gen_nss_pgsql(output):
-    tpl = Template(filename='./templates/nss-pgsql.conf')
+    tpl = Template(filename='./tfhnode/templates/nss-pgsql.conf')
     fh = open(output, 'w')
     fh.write(tpl.render(
         host=dbe.url.host, db=dbe.url.database,
@@ -126,7 +126,7 @@ def gen_nss_pgsql(output):
     os.chmod(output, 0o644)
 
 def gen_nss_pgsql_root(output):
-    tpl = Template(filename='./templates/nss-pgsql-root.conf')
+    tpl = Template(filename='./tfhnode/templates/nss-pgsql-root.conf')
     fh = open(output, 'w')
     fh.write(tpl.render(
         host=dbe.url.host, db=dbe.url.database,
