@@ -35,7 +35,7 @@ class Service(object):
 def get_ssl_certs(vhost):
     # User-provided SSL cert
     base = '/home/%s/ssl/%s' % (vhost.user.username, vhost.name)
-    user_cert, user_key = base+'.crt', base+'.key'
+    user_cert, user_csr, user_key = base+'.crt', base+'.csr', base+'.key'
     if os.path.isfile(user_cert) and os.path.isfile(user_key):
         logging.debug('-> found user SSL cert.')
         return (user_cert, user_key)
@@ -51,10 +51,34 @@ def get_ssl_certs(vhost):
                 logging.debug('-> found wildcard SSL cert.')
                 return (cert, key)
 
-    # None found, cannot enable SSL
-    # TODO: Generate a certificate/key for given vhost
-    #       If possible, signed with CACert.
-    return None
+    # None found, generate a self-signed cert
+    # TODO: CACert ?
+    
+    bits = 4096
+    days = 3650
+    cert_org = 'Tux-FreeHost'
+    
+    ssl_dir = '/home/%s/ssl/'%(vhost.user.username)
+    if not os.path.isdir(ssl_dir):
+        os.makedirs(ssl_dir)
+
+    logging.debug('-> generating RSA key...')
+    subprocess.call(['openssl', 'genrsa', '-out', user_key, str(bits)])
+    os.chmod(user_key, 0o400)
+
+    logging.debug('-> generating CSR...')
+    subprocess.call(['openssl', 'req', '-new', '-days', str(days),
+        '-key', user_key, '-out', user_csr, '-batch',
+        '-subj', '/C=FR/O=%s/CN=%s'%(cert_org, vhost.domains[0].domain)])
+    
+    logging.debug('-> generating certificate...')
+    subprocess.call(['openssl', 'x509', '-req', '-days', str(days),
+        '-in', user_csr, '-signkey', user_key, '-out', user_cert])
+    
+    for f in (user_cert, user_csr, user_key):
+        subprocess.call(['chown', vhost.user.username, f])
+    
+    return (user_cert, user_key)
 
 class NginxService(Service):
     def __init__(self, output, pidfile, server, options):
@@ -83,7 +107,7 @@ class NginxService(Service):
             elif self.options['make-http-dirs']:
                 os.makedirs(pubdir)
                 os.system('chown %s:%s -R %s'%(
-                    user.username, user.username, pubdir))
+                    vhost.user.username, vhost.user.username, pubdir))
         
         appsocket = None
         if vhost.apptype & 0x20: # uwsgi apps
