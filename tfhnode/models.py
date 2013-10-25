@@ -37,7 +37,6 @@ class User(Base):
     username = Column(String(32), unique=True, nullable=False)
     password = Column(String(128))
     email    = Column(String(512))
-    #groupid  = Column(ForeignKey('groups.id'), nullable=False, default=0)
     signup_date = Column(DateTime, default=datetime.datetime.now, nullable=False)
     
     vhosts   = relationship('VHost', backref='user')
@@ -77,20 +76,6 @@ class LoginHistory(Base):
     time     = Column(DateTime, default=datetime.datetime.now, nullable=False)
     remote   = Column(String(64))
     useragent= Column(String(64))
-
-class Server(Base):
-    __tablename__ = 'servers'
-    id       = Column(Integer, primary_key=True)
-    name     = Column(String(32), unique=True, nullable=False)
-    fqdn     = Column(String(256), unique=True, nullable=False)
-    ipv4     = Column(String(32))
-    ipv6     = Column(String(64))
-    opened   = Column(Boolean, nullable=False)
-    lastupdate = Column(DateTime, nullable=False, default=datetime.datetime.fromtimestamp(1))
-    
-    vhosts   = relationship('VHost', backref='server')
-    
-    natural_key = 'name'
 
 class Domain(Base):
     __tablename__ = 'domains'
@@ -163,15 +148,12 @@ class VHost(Base):
     
     id       = Column(Integer, primary_key=True)
     name     = Column(String(32), nullable=False)
-#   path     = Column(String(256), nullable=True)
     userid   = Column(ForeignKey('users.id'), nullable=False)
-    serverid = Column(ForeignKey('servers.id'), nullable=False)
     update   = Column(DateTime, onupdate=datetime.datetime.now)
     catchall = Column(String(256))
     autoindex= Column(Boolean, nullable=False, default=False)
     apptype  = Column(BigInteger, nullable=False, default=0)
     applocation = Column(String(512))
-#   ssl      = Column(Boolean, nullable=False, default=False)
     
     natural_key = 'name'
     
@@ -212,8 +194,4 @@ class VHostErrorPage(Base):
     vhostid  = Column(ForeignKey('vhosts.id'), nullable=False)
     code     = Column(Integer, nullable=False)
     path     = Column(String(256), nullable=False)
-    
-
-
-
 
