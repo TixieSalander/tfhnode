@@ -11,18 +11,17 @@ class MyBase(object):
 
     def get_natural_key(self):
         if hasattr(self, self.natural_key):
-            return '#'+str(self.id)+' '+getattr(self, self.natural_key)
+            return getattr(self, self.natural_key)
+        # Without natural key, we use ID, still better than None
         return '#'+str(self.id)
 
     @property
-    @classmethod
-    def display_name(cls):
-        return re.sub("([a-z])([A-Z])","\g<1> \g<2>", cls.__name__)
+    def display_name(self):
+        return re.sub("([a-z])([A-Z])","\g<1> \g<2>", self.__class__.__name__)
     
     @property
-    @classmethod
-    def short_name(cls):
-        return cls.__name__.lower()
+    def short_name(self):
+        return self.__class__.__name__.lower()
 
     def __str__(self):
         return self.get_natural_key()
