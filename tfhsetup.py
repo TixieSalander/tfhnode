@@ -18,7 +18,8 @@ options = {
 
 generators = (
     # name              output path             generator
-    ('tables',          None,                   'gen_tables'),
+    ('dbtables',        None,                   'gen_tables'),
+    ('dbdata',          None,                   'gen_data'),
     ('dovecot',         'dovecot-sql.conf',     'gen_dovecot'),
     ('postfix',         'postfix/',             'gen_postfix'),
     ('pam-pgsql',       'pam_pgsql.conf',       'gen_pam_pgsql'),
@@ -72,6 +73,20 @@ dbe = create_engine(options['db'])
 
 def gen_tables():
     Base.metadata.create_all(dbe)
+
+def gen_data():
+    dbs = sessionmaker(bind=dbe)()
+
+    hosted_group = Group(name='hosted', description='Hosted users')
+    support_group = Group(name='support', description='Support')
+    admin_group = Group(name='admin', description='Administrator')
+    dbs.add_all([hosted_group, support_group, admin_group])
+    dbs.commit()
+    
+    admin_user = User(username='admin', groups=[admin_group])
+    admin_user.set_password('admin')
+    dbs.add(admin_user)
+    dbs.commit()
 
 def gen_dovecot(output):
     tpl = Template(filename='./tfhnode/templates/dovecot-sql.conf')

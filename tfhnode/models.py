@@ -7,21 +7,13 @@ import re
 import crypt
 
 class MyBase(object):
-    natural_key = 'none'
+    natural_key = None
 
     def get_natural_key(self):
-        if hasattr(self, self.natural_key):
+        if self.natural_key and hasattr(self, self.natural_key):
             return getattr(self, self.natural_key)
         # Without natural key, we use ID, still better than None
         return '#'+str(self.id)
-
-    @property
-    def display_name(self):
-        return re.sub("([a-z])([A-Z])","\g<1> \g<2>", self.__class__.__name__)
-    
-    @property
-    def short_name(self):
-        return self.__class__.__name__.lower()
 
     def __str__(self):
         return self.get_natural_key()
@@ -35,6 +27,7 @@ class User(Base):
     id       = Column(Integer, primary_key=True)
     username = Column(String(32), unique=True, nullable=False)
     password = Column(String(128))
+    pgppk    = Column(BigInteger())
     email    = Column(String(512))
     signup_date = Column(DateTime, default=datetime.datetime.now, nullable=False)
     
