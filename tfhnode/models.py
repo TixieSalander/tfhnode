@@ -1,10 +1,12 @@
 from sqlalchemy import *
-from sqlalchemy.orm import relationship, backref, sessionmaker, scoped_session
+from sqlalchemy.orm import *
 import datetime
 from sqlalchemy.ext.declarative import declarative_base
 import inspect
 import re
 import crypt
+import tempfile
+import subprocess
 
 class MyBase(object):
     natural_key = None
@@ -27,7 +29,7 @@ class User(Base):
     id       = Column(Integer, primary_key=True)
     username = Column(String(32), unique=True, nullable=False)
     password = Column(String(128))
-    pgppk    = Column(BigInteger())
+    pgppk    = deferred(Column(Binary()))
     email    = Column(String(512))
     signup_date = Column(DateTime, default=datetime.datetime.now, nullable=False)
     
@@ -43,6 +45,30 @@ class User(Base):
 
     def set_password(self, cleartext):
         self.password = crypt.crypt(cleartext)
+
+    def verify_signature(self, cleartext, signature):
+        import gnupg
+        import shutil
+        import os
+
+        gpghome = tempfile.mkdtemp()
+        text_file = tempfile.mkstemp()[1]
+        sign_file = tempfile.mkstemp()[1]
+        
+        with open(text_file, 'wb') as f:
+            f.write(bytes(cleartext, 'utf-8'))
+        with open(sign_file, 'wb') as f:
+            f.write(bytes(signature, 'utf-8'))
+
+        gpg = gnupg.GPG(gnupghome=gpghome)
+        i = gpg.import_keys(self.pgppk)
+        v = gpg.verify_file(open(sign_file, 'rb'), text_file)
+        
+        os.remove(text_file)
+        os.remove(sign_file)
+        shutil.rmtree(gpghome)
+        
+        return i and v and v.pubkey_fingerprint in i.fingerprints
 
 usergroup_association = Table('usergroups', Base.metadata,
     Column('userid', Integer, ForeignKey('users.id')),
