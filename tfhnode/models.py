@@ -80,8 +80,6 @@ class Group(Base):
     id       = Column(Integer, primary_key=True)
     name     = Column(String(64), nullable=False)
     description = Column(String(256))
-    perms    = Column(BigInteger, default=0, nullable=False)
-    appperms = Column(BigInteger, default=0, nullable=False)
     
     users    = relationship('User', secondary=usergroup_association, backref='groups')
 
